@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Terminal, Code, RotateCw, MonitorPlay, Bot, Maximize, X, User as UserIcon, LogOut, MessageSquare, Download } from 'lucide-react';
+import { Send, Terminal, Code, RotateCw, MonitorPlay, Bot, Maximize, X, User as UserIcon, LogOut, MessageSquare, Download, Menu, PanelLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
@@ -208,115 +208,142 @@ export default function App() {
     <div className="h-screen bg-[#0A0A0A] text-gray-100 flex overflow-hidden font-sans selection:bg-indigo-500/30">
       
       {/* Sidebar */}
-      <aside className="w-64 border-r border-white/10 bg-[#0F0F13] flex flex-col flex-shrink-0">
-        <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-8 h-8 shrink-0">
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-              className="absolute inset-0 rounded-full border-2 border-indigo-500/50 border-t-indigo-400 border-r-indigo-400"
-            />
-            <Bot className="w-4 h-4 text-indigo-400 z-10" />
-          </div>
-          <motion.h1 
-            animate={{ opacity: [1, 0.4, 1] }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            className="text-lg font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-indigo-400 truncate"
+      <AnimatePresence initial={false}>
+        {isSidebarOpen && (
+          <motion.aside 
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 256, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-r border-white/10 bg-[#0F0F13] flex flex-col flex-shrink-0 whitespace-nowrap overflow-hidden"
           >
-            Xasil Ajanı
-          </motion.h1>
-        </div>
-
-        <div className="p-4 flex-1 overflow-y-auto space-y-4">
-          <button
-            onClick={startNewChat}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <MessageSquare className="w-4 h-4" />
-            Yeni Sohbet
-          </button>
-
-          <div className="space-y-1 mt-6">
-            <h3 className="text-xs font-medium text-gray-500 uppercase px-2 mb-2 tracking-wider">Sohbet Geçmişi</h3>
-            {!user ? (
-              <div className="text-xs text-gray-500 px-2">Geçmişi görmek için giriş yapın.</div>
-            ) : chats.length === 0 ? (
-              <div className="text-xs text-gray-500 px-2">Henüz sohbet yok.</div>
-            ) : (
-              chats.map(chat => (
-                <button
-                  key={chat.id}
-                  onClick={() => loadChat(chat.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors truncate",
-                    currentChatId === chat.id 
-                      ? "bg-white/10 text-white font-medium" 
-                      : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
-                  )}
-                >
-                  {chat.title}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-white/10">
-          {user ? (
-            <div className="flex items-center gap-3 w-full">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/10 shrink-0" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                  <UserIcon className="w-4 h-4 text-gray-400" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-200 truncate">{user.displayName || 'Kullanıcı'}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+            <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
+              <div className="relative flex items-center justify-center w-8 h-8 shrink-0">
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                  className="absolute inset-0 rounded-full border-2 border-indigo-500/50 border-t-indigo-400 border-r-indigo-400"
+                />
+                <Bot className="w-4 h-4 text-indigo-400 z-10" />
               </div>
-              <button onClick={logout} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg shrink-0">
-                <LogOut className="w-4 h-4" />
-              </button>
+              <motion.h1 
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="text-lg font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 to-indigo-400 truncate"
+              >
+                Xasil Ajanı
+              </motion.h1>
             </div>
-          ) : (
-            <button
-              onClick={signInWithGoogle}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
-            >
-              Google ile Giriş Yap
-            </button>
-          )}
-        </div>
-      </aside>
+
+            <div className="p-4 flex-1 overflow-y-auto space-y-4">
+              <button
+                onClick={startNewChat}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Yeni Sohbet
+              </button>
+
+              <div className="space-y-1 mt-6">
+                <h3 className="text-xs font-medium text-gray-500 uppercase px-2 mb-2 tracking-wider">Sohbet Geçmişi</h3>
+                {!user ? (
+                  <div className="text-xs text-gray-500 px-2 whitespace-normal">Geçmişi görmek için giriş yapın.</div>
+                ) : chats.length === 0 ? (
+                  <div className="text-xs text-gray-500 px-2 whitespace-normal">Henüz sohbet yok.</div>
+                ) : (
+                  chats.map(chat => (
+                    <button
+                      key={chat.id}
+                      onClick={() => loadChat(chat.id)}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors truncate",
+                        currentChatId === chat.id 
+                          ? "bg-white/10 text-white font-medium" 
+                          : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                      )}
+                    >
+                      {chat.title}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-white/10">
+              {user ? (
+                <div className="flex items-center gap-3 w-full">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-white/10 shrink-0" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                      <UserIcon className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-200 truncate">{user.displayName || 'Kullanıcı'}</p>
+                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  </div>
+                  <button onClick={logout} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg shrink-0">
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={signInWithGoogle}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Google ile Giriş Yap
+                </button>
+              )}
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         
         {/* Header */}
-        <header className="border-b border-white/10 bg-[#0F0F13] px-6 py-4 flex items-center justify-end sticky top-0 z-10 shadow-sm shrink-0 gap-3">
-          {isInstallable && (
+        <header className="border-b border-white/10 bg-[#0F0F13] px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm shrink-0">
+          <div className="flex items-center gap-3">
             <button
-              onClick={handleInstallClick}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
             >
-              <Download className="w-4 h-4" />
-              Uygulamayı İndir
+              {isSidebarOpen ? <PanelLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-          )}
-          <button
-            onClick={() => setIsPreviewOpen(true)}
-            disabled={!generatedCode && !isGenerating}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-              generatedCode || isGenerating
-                ? "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30"
-                : "bg-white/5 text-gray-500 border border-white/5 cursor-not-allowed"
+            {!isSidebarOpen && (
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-indigo-400" />
+                <span className="font-medium text-gray-200 tracking-tight">Xasil Ajanı</span>
+              </div>
             )}
-          >
-            <MonitorPlay className="w-4 h-4" />
-            Tam Ekran Önizleme
-          </button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {isInstallable && (
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
+              >
+                <Download className="w-4 h-4" />
+                Uygulamayı İndir
+              </button>
+            )}
+            <button
+              onClick={() => setIsPreviewOpen(true)}
+              disabled={!generatedCode && !isGenerating}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                generatedCode || isGenerating
+                  ? "bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30"
+                  : "bg-white/5 text-gray-500 border border-white/5 cursor-not-allowed"
+              )}
+            >
+              <MonitorPlay className="w-4 h-4" />
+              Tam Ekran Önizleme
+            </button>
+          </div>
         </header>
 
         {/* Chat Area */}
