@@ -1,0 +1,17 @@
+{
+  "name": "Xasil Ajanı",
+  "short_name": "Xasil",
+  "description": "Kullanıcı isteklerine göre analiz yapıp anında çalışan web sayfaları kodlayan yapay zeka asistanı.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#0F0F13",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

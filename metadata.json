@@ -1,0 +1,6 @@
+{
+  "name": "Xasil Ajanı",
+  "description": "Kullanıcı isteklerine göre analiz yapıp anında çalışan web sayfaları kodlayan yapay zeka asistanı.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
