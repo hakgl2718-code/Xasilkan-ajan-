@@ -5,23 +5,44 @@ import { createServer as createViteServer } from 'vite';
 const app = express();
 const PORT = 3000;
 
+// Enable CORS for all routes (important for APK / Mobile Webviews)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,Content-Type,Authorization,Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 
 app.post('/api/generate', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, currentCode } = req.body;
     
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const systemInstruction = `Sen 'Xasil Ajanı' adlı uzman bir yapay zeka kodlama asistanısın. Görevin kullanıcının isteklerini analiz edip, tek bir HTML dosyası içinde (CSS ve JS dahil) eksiksiz, çalışan bir web projesi yazmaktır. Önceki konuşma bağlamını (varsa) dikkate al ve aynı proje üzerinde geliştirmeler yapmaya devam et.
+    let systemInstruction = `Sen 'Xasil Ajanı' adlı uzman bir yapay zeka kodlama asistanısın. Görevin kullanıcının isteklerini analiz edip, tek bir HTML dosyası içinde (CSS ve JS dahil) eksiksiz, çalışan bir web projesi yazmaktır. Önceki konuşma bağlamını (varsa) dikkate al ve aynı proje üzerinde geliştirmeler yapmaya devam et.
     
 Lütfen cevabını şu formatta ver:
-1. Önce kullanıcının projesi için yapacağın araştırmayı, analizini ve planını kısaca açıkla.
+1. Önce kullanıcının projesi için yapacağın araştırmayı, analizi ve planlamayı KESİNLİKLE çok yapılandırılmış (Markdown tabloları veya onay kutulu yapılacaklar listeleri - checklists kullanarak) bir şekilde sun. Kullanıcı nelerin üretileceğini, hangi bileşenlerin ekleneceğini ve state yönetimini önceden net bir şekilde görebilsin.
 2. Ardından, \`\`\`html ve \`\`\` etiketleri arasına tüm kodu yerleştir.
 
 Kod, bağımsız ve doğrudan tarayıcıda çalışabilir olmalıdır. Gerekirse CDN üzerinden Tailwind CSS veya diğer kütüphaneleri ekleyebilirsin.`;
+
+    if (currentCode && currentCode.trim()) {
+      systemInstruction += `\n\nÖNEMLİ: Şu anda düzenlemekte olduğun mevcut projenin en güncel kaynak kodu aşağıdadır. Kullanıcının yeni talebini bu kodun üzerine inşa etmeli, yeni eklemeleri/güncellemeleri bu koda entegre etmelisin. Sıfırdan yeni bir tasarım veya proje OLUŞTURMA. Mevcut işlevleri, tasarımı, kütüphaneleri, stilleri ve renk şemasını kesinlikle koru, sadece istenen değişiklikleri yap ve güncellenmiş kodun tamamını tek bir \`\`\`html ... \`\`\` bloğunda eksiksiz ver:
+\`\`\`html
+${currentCode}
+\`\`\``;
+    }
 
     const pollinationsMessages = [
       { role: 'system', content: systemInstruction },

@@ -9,5 +9,9 @@ service cloud.firestore {
     match /chats/{chatId} {
       allow read, write: if true;
     }
+    
+    match /published/{publishId} {
+      allow read, write: if true;
+    }
   }
 }
