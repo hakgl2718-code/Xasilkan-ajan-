@@ -435,7 +435,7 @@ export default function App() {
                     isAssistant ? "" : "flex-row-reverse"
                   )}>
                     <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-[#0F0F13] border border-white/10 shadow-sm mt-1">
-                      {isAssistant ? <Bot className="w-4 h-4 text-indigo-400" /> : <User className="w-4 h-4 text-gray-400" />}
+                      {isAssistant ? <Bot className="w-4 h-4 text-indigo-400" /> : <UserIcon className="w-4 h-4 text-gray-400" />}
                     </div>
                     <div className={cn(
                       "rounded-2xl px-5 py-3.5",
