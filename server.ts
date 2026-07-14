@@ -38,7 +38,7 @@ Kod, bağımsız ve doğrudan tarayıcıda çalışabilir olmalıdır. Gerekirse
       },
       body: JSON.stringify({
         messages: pollinationsMessages,
-        model: 'qwen-coder',
+        model: 'openai',
         stream: true
       })
     });
@@ -52,19 +52,51 @@ Kod, bağımsız ve doğrudan tarayıcıda çalışabilir olmalıdır. Gerekirse
 
     if (response.body) {
       // @ts-ignore
-      if (typeof response.body.getReader === 'function') {
-        // @ts-ignore
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          res.write(decoder.decode(value, { stream: true }));
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed === 'data: [DONE]') continue;
+
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6);
+            try {
+              const parsed = JSON.parse(dataStr);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                res.write(content);
+              }
+            } catch (e) {
+              // Ignore invalid JSON lines
+            }
+          }
         }
-      } else {
-        // @ts-ignore
-        for await (const chunk of response.body) {
-          res.write(chunk);
+      }
+
+      if (buffer) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+          const dataStr = trimmed.slice(6);
+          try {
+            const parsed = JSON.parse(dataStr);
+            const content = parsed.choices?.[0]?.delta?.content || '';
+            if (content) {
+              res.write(content);
+            }
+          } catch (e) {}
         }
       }
     }
