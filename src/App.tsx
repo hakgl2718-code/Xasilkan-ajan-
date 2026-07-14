@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { auth, signUpWithEmail, signInWithEmail, logout, db } from './lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { signUpWithEmail, signInWithEmail, logout, db, type CustomUser } from './lib/firebase';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDoc } from 'firebase/firestore';
 
 function cn(...inputs: ClassValue[]) {
@@ -18,7 +17,17 @@ export default function App() {
   const [messages, setMessages] = useState<Array<{role: 'user'|'assistant', content: string}>>([]);
   const [generatedCode, setGeneratedCode] = useState('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<CustomUser | null>(() => {
+    const stored = localStorage.getItem('xasil_user');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const [chats, setChats] = useState<Array<{id: string, title: string, updatedAt: any}>>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -60,14 +69,12 @@ export default function App() {
     setDeferredPrompt(null);
   };
   
-  // Listen for auth state changes
+  // Listen for user changes to fetch chats
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // Load user's chats
+    const fetchChats = async () => {
+      if (user) {
         const chatsRef = collection(db, 'chats');
-        const q = query(chatsRef, where('userId', '==', currentUser.uid), orderBy('updatedAt', 'desc'));
+        const q = query(chatsRef, where('userId', '==', user.uid), orderBy('updatedAt', 'desc'));
         try {
           const snapshot = await getDocs(q);
           const loadedChats = snapshot.docs.map(doc => ({
@@ -77,10 +84,7 @@ export default function App() {
           }));
           setChats(loadedChats);
           
-          if (loadedChats.length > 0) {
-            // Automatically load the latest chat
-            // loadChat(loadedChats[0].id); // Un-comment to load on login
-          } else {
+          if (loadedChats.length === 0) {
             startNewChat();
           }
         } catch (error) {
@@ -92,9 +96,10 @@ export default function App() {
         setGeneratedCode('');
         setCurrentChatId(null);
       }
-    });
-    return () => unsubscribe();
-  }, []);
+    };
+
+    fetchChats();
+  }, [user]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,28 +110,21 @@ export default function App() {
     try {
       if (authMode === 'signup') {
         if (!authDisplayName.trim()) throw new Error('Kullanıcı adı gerekli.');
-        await signUpWithEmail(authEmail, authPassword, authDisplayName);
-        setAuthMessage('Kayıt başarılı! Lütfen doğrulama kodu için e-posta adresinizi kontrol edin.');
-        // Don't switch modes automatically, let the user read the success message
-        // They will log in using the same form by switching or we can log them out explicitly
-        logout(); // ensure they are logged out until they verify
+        const newUser = await signUpWithEmail(authEmail, authPassword, authDisplayName);
+        setUser(newUser);
+        localStorage.setItem('xasil_user', JSON.stringify(newUser));
+        setAuthMessage('Hesabınız başarıyla oluşturuldu ve giriş yapıldı!');
+        setTimeout(() => {
+          setIsAuthModalOpen(false);
+        }, 1500);
       } else {
-        await signInWithEmail(authEmail, authPassword);
+        const loggedInUser = await signInWithEmail(authEmail, authPassword);
+        setUser(loggedInUser);
+        localStorage.setItem('xasil_user', JSON.stringify(loggedInUser));
         setIsAuthModalOpen(false);
       }
     } catch (error: any) {
-      // Firebase throws error objects, try to get a clean message
-      let msg = error.message;
-      if (msg.includes('auth/invalid-credential')) {
-         msg = 'E-posta veya şifre hatalı.';
-      } else if (msg.includes('auth/email-already-in-use')) {
-         msg = 'Bu e-posta adresi zaten kullanımda.';
-      } else if (msg.includes('auth/weak-password')) {
-         msg = 'Şifre çok zayıf. En az 6 karakter olmalı.';
-      } else if (msg.includes('auth/operation-not-allowed')) {
-         msg = 'E-posta/Şifre girişi kapalı. Firebase Console üzerinden aktif edilmelidir.';
-      }
-      setAuthError(msg || 'Bir hata oluştu.');
+      setAuthError(error.message || 'Bir hata oluştu.');
     } finally {
       setIsAuthenticating(false);
     }
@@ -328,7 +326,7 @@ export default function App() {
                     <p className="text-sm font-medium text-gray-200 truncate">{user.displayName || 'Kullanıcı'}</p>
                     <p className="text-xs text-gray-500 truncate">{user.email}</p>
                   </div>
-                  <button onClick={logout} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg shrink-0">
+                  <button onClick={() => { setUser(null); localStorage.removeItem('xasil_user'); }} className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg shrink-0">
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
