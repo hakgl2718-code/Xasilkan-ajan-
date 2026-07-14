@@ -189,6 +189,16 @@ export default function App() {
         body: JSON.stringify({ messages: messagesPayload }),
       });
 
+      if (!response.ok) {
+        const errText = await response.text();
+        let errMsg = 'İstek başarısız oldu.';
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errMsg;
+        } catch (e) {}
+        throw new Error(errMsg);
+      }
+
       if (!response.body) throw new Error('No response body');
 
       const reader = response.body.getReader();
@@ -232,13 +242,13 @@ export default function App() {
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating:', error);
       setMessages(prev => {
         const newMessages = [...prev];
         const lastMsg = newMessages[newMessages.length - 1];
         if (lastMsg && lastMsg.role === 'assistant') {
-          lastMsg.content += '\n\n**Bir hata oluştu.** Lütfen tekrar deneyin.';
+          lastMsg.content += `\n\n**Bir hata oluştu:** ${error.message || 'Lütfen tekrar deneyin.'}`;
         }
         return newMessages;
       });
