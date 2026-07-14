@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { auth, signInWithGoogle, logout, db } from './lib/firebase';
+import { auth, signUpWithEmail, signInWithEmail, logout, db } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp, orderBy, getDoc } from 'firebase/firestore';
 
@@ -26,6 +26,15 @@ export default function App() {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login'|'signup'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authDisplayName, setAuthDisplayName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -86,6 +95,42 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthMessage('');
+    setIsAuthenticating(true);
+
+    try {
+      if (authMode === 'signup') {
+        if (!authDisplayName.trim()) throw new Error('Kullanıcı adı gerekli.');
+        await signUpWithEmail(authEmail, authPassword, authDisplayName);
+        setAuthMessage('Kayıt başarılı! Lütfen doğrulama kodu için e-posta adresinizi kontrol edin.');
+        // Don't switch modes automatically, let the user read the success message
+        // They will log in using the same form by switching or we can log them out explicitly
+        logout(); // ensure they are logged out until they verify
+      } else {
+        await signInWithEmail(authEmail, authPassword);
+        setIsAuthModalOpen(false);
+      }
+    } catch (error: any) {
+      // Firebase throws error objects, try to get a clean message
+      let msg = error.message;
+      if (msg.includes('auth/invalid-credential')) {
+         msg = 'E-posta veya şifre hatalı.';
+      } else if (msg.includes('auth/email-already-in-use')) {
+         msg = 'Bu e-posta adresi zaten kullanımda.';
+      } else if (msg.includes('auth/weak-password')) {
+         msg = 'Şifre çok zayıf. En az 6 karakter olmalı.';
+      } else if (msg.includes('auth/operation-not-allowed')) {
+         msg = 'E-posta/Şifre girişi kapalı. Firebase Console üzerinden aktif edilmelidir.';
+      }
+      setAuthError(msg || 'Bir hata oluştu.');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
 
   const startNewChat = () => {
     setCurrentChatId(null);
@@ -289,10 +334,10 @@ export default function App() {
                 </div>
               ) : (
                 <button
-                  onClick={signInWithGoogle}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white text-black hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                  onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMessage(''); setIsAuthModalOpen(true); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors"
                 >
-                  Google ile Giriş Yap
+                  Giriş Yap / Üye Ol
                 </button>
               )}
             </div>
@@ -489,6 +534,117 @@ export default function App() {
                 />
               )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Auth Modal */}
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0F0F13] border border-white/10 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0A0A0A]">
+                <h2 className="text-lg font-medium text-white">
+                  {authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'}
+                </h2>
+                <button
+                  onClick={() => setIsAuthModalOpen(false)}
+                  className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                {authError && (
+                  <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+                    {authError}
+                  </div>
+                )}
+                {authMessage && (
+                  <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-sm text-emerald-400">
+                    {authMessage}
+                  </div>
+                )}
+
+                <form onSubmit={handleAuth} className="space-y-4">
+                  {authMode === 'signup' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">Kullanıcı Adı</label>
+                      <input
+                        type="text"
+                        required
+                        value={authDisplayName}
+                        onChange={(e) => setAuthDisplayName(e.target.value)}
+                        className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                        placeholder="Örn: Ahmet Yılmaz"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">E-posta Adresi (@gmail.com)</label>
+                    <input
+                      type="email"
+                      required
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                      className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                      placeholder="hesabiniz@gmail.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1">Şifre</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                      placeholder="En az 6 karakter"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isAuthenticating}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                  >
+                    {isAuthenticating ? (
+                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
+                    ) : (
+                      authMode === 'login' ? 'Giriş Yap' : 'Kayıt Ol'
+                    )}
+                  </button>
+                </form>
+
+                <div className="mt-6 text-center text-sm text-gray-400">
+                  {authMode === 'login' ? (
+                    <>
+                      Hesabınız yok mu?{' '}
+                      <button onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthMessage(''); }} className="text-indigo-400 hover:text-indigo-300 font-medium">
+                        Kayıt Ol
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Zaten hesabınız var mı?{' '}
+                      <button onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMessage(''); }} className="text-indigo-400 hover:text-indigo-300 font-medium">
+                        Giriş Yap
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
