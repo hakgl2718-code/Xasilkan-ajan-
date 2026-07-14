@@ -219,21 +219,83 @@ Kod, bağımsız ve doğrudan tarayıcıda çalışabilir olmalıdır. Gerekirse
       const decoder = new TextDecoder('utf-8');
       
       let finalAssistantMessage = '';
+      let buffer = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
         
-        finalAssistantMessage += chunk;
-        setMessages(prev => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[newMessages.length - 1];
-          if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.content = finalAssistantMessage;
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Split buffer by newlines to process SSE lines
+        const lines = buffer.split('\n');
+        // Keep the last unfinished line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed === 'data: [DONE]') continue;
+
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6);
+            try {
+              const parsed = JSON.parse(dataStr);
+              const content = parsed.choices?.[0]?.delta?.content || '';
+              if (content) {
+                finalAssistantMessage += content;
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMsg = newMessages[newMessages.length - 1];
+                  if (lastMsg && lastMsg.role === 'assistant') {
+                    lastMsg.content = finalAssistantMessage;
+                  }
+                  return newMessages;
+                });
+              }
+            } catch (e) {
+              // Parse error ignored
+            }
           }
-          return newMessages;
-        });
+        }
       }
+
+      // Flush remaining buffer
+      if (buffer && buffer.startsWith('data: ')) {
+        const trimmed = buffer.trim();
+        const dataStr = trimmed.slice(6);
+        try {
+          const parsed = JSON.parse(dataStr);
+          const content = parsed.choices?.[0]?.delta?.content || '';
+          if (content) {
+            finalAssistantMessage += content;
+          }
+        } catch (e) {}
+      }
+
+      // If for some reason finalAssistantMessage remains empty, retry with non-streaming fallback
+      if (!finalAssistantMessage) {
+        const fallbackResponse = await fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: pollinationsMessages,
+            model: 'qwen-coder'
+          })
+        });
+        if (fallbackResponse.ok) {
+          finalAssistantMessage = await fallbackResponse.text();
+        }
+      }
+
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMsg = newMessages[newMessages.length - 1];
+        if (lastMsg && lastMsg.role === 'assistant') {
+          lastMsg.content = finalAssistantMessage;
+        }
+        return newMessages;
+      });
 
       // Save to Firestore
       if (user) {
