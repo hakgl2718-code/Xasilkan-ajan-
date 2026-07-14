@@ -952,52 +952,30 @@ Ardından, tek bir \`\`\`html ve \`\`\` etiketleri arasına projenin güncellenm
         throw new Error(`Model isteği başarısız oldu (Hata Kodu: ${response.status})`);
       }
 
-      if (!response.body) throw new Error('Cevap gövdesi boş');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
+      const text = await response.text();
       
-      let finalAssistantMessage = '';
+      let finalAssistantMessage = text;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        if (chunk) {
-          finalAssistantMessage += chunk;
-          setMessages(prev => {
-            if (prev.length === 0) return prev;
-            const newMessages = [...prev];
-            const lastIdx = newMessages.length - 1;
-            const lastMsg = newMessages[lastIdx];
-            if (lastMsg && lastMsg.role === 'assistant') {
-              newMessages[lastIdx] = {
-                ...lastMsg,
-                content: finalAssistantMessage
-              };
-            }
-            return newMessages;
-          });
-        }
-      }
-
-      // If for some reason finalAssistantMessage remains empty, retry with fallback
       if (!finalAssistantMessage) {
-        const fallbackResponse = await fetch(getApiUrl('/api/generate'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: messagesPayload,
-            currentCode: generatedCode,
-            groqToken: safeLocalStorage.getItem('groq_api_key') || '',
-            userTrainingInstruction: safeLocalStorage.getItem('user_training_instruction') || ''
-          })
-        });
-        if (fallbackResponse.ok) {
-          finalAssistantMessage = await fallbackResponse.text();
-        }
+        // Fallback or error
+        throw new Error('Geçerli bir mesaj alınamadı');
       }
+
+      setMessages(prev => {
+        if (prev.length === 0) return prev;
+        const newMessages = [...prev];
+        const lastIdx = newMessages.length - 1;
+        const lastMsg = newMessages[lastIdx];
+        if (lastMsg && lastMsg.role === 'assistant') {
+          newMessages[lastIdx] = {
+            ...lastMsg,
+            content: finalAssistantMessage
+          };
+        }
+        return newMessages;
+      });
+
+      // Clear generation state
 
       setMessages(prev => {
         if (prev.length === 0) return prev;
@@ -1112,31 +1090,24 @@ Ardından, tek bir \`\`\`html ve \`\`\` etiketleri arasına projenin güncellenm
           throw new Error(`Berrak model isteği başarısız oldu (Hata Kodu: ${response.status})`);
         }
 
-        if (!response.body) throw new Error('Cevap gövdesi boş');
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let finalResponse = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          if (chunk) {
-            finalResponse += chunk;
-            setMessagesBerrak(prev => {
-              if (prev.length === 0) return prev;
-              const updated = [...prev];
-              const lastIdx = updated.length - 1;
-              updated[lastIdx] = {
-                role: 'assistant',
-                content: finalResponse
-              };
-              return updated;
-            });
-          }
+        const text = await response.text();
+        
+        let finalResponse = text;
+        
+        if (!finalResponse) {
+          throw new Error('Geçerli bir mesaj alınamadı');
         }
+
+        setMessagesBerrak(prev => {
+          if (prev.length === 0) return prev;
+          const updated = [...prev];
+          const lastIdx = updated.length - 1;
+          updated[lastIdx] = {
+            role: 'assistant',
+            content: finalResponse
+          };
+          return updated;
+        });
       } catch (err: any) {
         clearInterval(interval);
         console.error('Berrak error:', err);

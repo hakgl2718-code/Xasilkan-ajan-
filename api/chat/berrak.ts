@@ -71,7 +71,8 @@ Türkiye coğrafyasını, şehirlerini, kültürünü, yemeklerini çok iyi bili
     }
 
     const data = await response.json();
-    return res.status(200).json(data);
+    const assistantMessage = data.choices?.[0]?.message?.content || "";
+    return res.status(200).send(assistantMessage);
   } catch (error: any) {
     console.error('Berrak Chat Hatası:', error);
     return res.status(500).json({ error: error.message || 'Sunucu hatası oluştu' });
