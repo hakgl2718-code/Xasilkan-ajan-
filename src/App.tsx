@@ -183,23 +183,37 @@ export default function App() {
     try {
       const messagesPayload = [...messages, { role: 'user', content: currentPrompt }];
 
-      const response = await fetch('/api/generate', {
+      const systemInstruction = `Sen 'Xasil Ajanı' adlı uzman bir yapay zeka kodlama asistanısın. Görevin kullanıcının isteklerini analiz edip, tek bir HTML dosyası içinde (CSS ve JS dahil) eksiksiz, çalışan bir web projesi yazmaktır. Önceki konuşma bağlamını (varsa) dikkate al ve aynı proje üzerinde geliştirmeler yapmaya devam et.
+    
+Lütfen cevabını şu formatta ver:
+1. Önce kullanıcının projesi için yapacağın araştırmayı, analizini ve planını kısaca açıkla.
+2. Ardından, \`\`\`html ve \`\`\` etiketleri arasına tüm kodu yerleştir.
+
+Kod, bağımsız ve doğrudan tarayıcıda çalışabilir olmalıdır. Gerekirse CDN üzerinden Tailwind CSS veya diğer kütüphaneleri ekleyebilirsin.`;
+
+      const pollinationsMessages = [
+        { role: 'system', content: systemInstruction },
+        ...messagesPayload.map((msg: any) => ({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: msg.content
+        }))
+      ];
+
+      const response = await fetch('https://text.pollinations.ai/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesPayload }),
+        body: JSON.stringify({
+          messages: pollinationsMessages,
+          model: 'qwen-coder',
+          stream: true
+        })
       });
 
       if (!response.ok) {
-        const errText = await response.text();
-        let errMsg = 'İstek başarısız oldu.';
-        try {
-          const errJson = JSON.parse(errText);
-          errMsg = errJson.error || errMsg;
-        } catch (e) {}
-        throw new Error(errMsg);
+        throw new Error(`Model isteği başarısız oldu (Hata Kodu: ${response.status})`);
       }
 
-      if (!response.body) throw new Error('No response body');
+      if (!response.body) throw new Error('Cevap gövdesi boş');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
@@ -215,7 +229,7 @@ export default function App() {
           const newMessages = [...prev];
           const lastMsg = newMessages[newMessages.length - 1];
           if (lastMsg && lastMsg.role === 'assistant') {
-            lastMsg.content += chunk;
+            lastMsg.content = finalAssistantMessage;
           }
           return newMessages;
         });
